@@ -17,7 +17,11 @@ Integrate Gemma Vision to categorize cleaned images. This involves passing the p
 - **D-01:** Use Google AI Studio via `google-genai` SDK for the Gemma 4 26B Vision endpoint.
 
 ### Rate Limiting & Concurrency
-- **D-02:** Process pages sequentially with a delay between requests to avoid hitting rate limits. Use the existing per-page progress caching to resume on failure.
+- **D-02:** Process pages sequentially with a strict 7-second delay between every request. Use the existing per-page progress caching to resume on failure.
+- **D-04:** API Error Handling Rules:
+  - **429 (Too Many Requests):** Wait 65 seconds before retrying.
+  - **500 / 503 (Server Errors):** Wait 15 seconds before retrying.
+  - **401 (Unauthorized):** Fail fast immediately and abort the script.
 
 ### Prompt & Fallback Strategy
 - **D-03:** Require JSON output from the LLM. If the model hallucinates an unknown category that is not in the dynamically provided list, fail the page and retry.
