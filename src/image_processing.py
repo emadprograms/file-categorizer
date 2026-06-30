@@ -47,54 +47,66 @@ def extract_and_clean_page(pdf_document, page_num: int, tmp_dir: str) -> str:
     Extracts a single page from a PyMuPDF document, cleans it exactly like the reference implementation, and saves it as an image.
     """
     page = pdf_document.load_page(page_num)
-    matrix = fitz.Matrix(300/72, 300/72)
-    pix = page.get_pixmap(matrix=matrix)
-
-    # Convert pixmap to numpy array for OpenCV
-    if pix.n - pix.alpha < 4:      # GRAY or RGB
-        img_np = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
-        if pix.alpha:
-            img_np = cv2.cvtColor(img_np, cv2.COLOR_RGBA2RGB)
-        elif pix.n == 1:
-            img_np = cv2.cvtColor(img_np, cv2.COLOR_GRAY2RGB)
-    else:                          # CMYK
-        img_np = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
-        img_np = cv2.cvtColor(img_np, cv2.COLOR_CMYK2RGB)
-        
-    # Green channel extraction
-    gray = img_np[:, :, 1]
     
-    # Auto-Deskew
+    # Render page to an image (dpi=300 for high quality) exactly as in study
+    pix = page.get_pixmap(dpi=300)
+    
+    raw_path = os.path.join(tmp_dir, f"raw_{page_num}.png")
+    clean_path = os.path.join(tmp_dir, f"page_{page_num}.png")
+    
+    # Save raw image to disk exactly like process_full_pdf.py
+    pix.save(raw_path)
+    
+    # 1. Load image in BGR
+    img = cv2.imread(raw_path)
+    if img is None:
+        raise ValueError(f"Could not read raw image {raw_path}")
+        
+    # 2. Extract Green Channel
+    gray = img[:, :, 1]
+    
+    # 3. Auto-Deskew
+    # Straighten the Arabic baselines before processing
     gray = auto_deskew(gray)
     
-    # Estimate Background (Illumination Map)
+    # 4. Estimate Background (Illumination Map)
     kernel_large = np.ones((15, 15), np.uint8)
     bg = cv2.dilate(gray, kernel_large, iterations=1)
     bg = cv2.GaussianBlur(bg, (21, 21), 0)
     
-    # Illumination Normalization (Division)
-    # Add small epsilon to prevent division by zero, though cv2/numpy handle it mostly
+    # 5. Illumination Normalization (Division)
+    # The study does not handle division by zero explicitly, relying on float32 division
+    # We will replicate the EXACT math from clean_ocr_image.py:
+    # normalized = 255 * (gray.astype(np.float32) / bg.astype(np.float32))
+    
+    # Small safeguard to prevent actual crash, but mathematically identical to study's nan/inf handling
     bg_float = bg.astype(np.float32)
-    bg_float[bg_float == 0] = 1.0
-    normalized = 255 * (gray.astype(np.float32) / bg_float)
+    bg_float[bg_float == 0] = 1e-6
+    normalized = 255.0 * (gray.astype(np.float32) / bg_float)
     normalized = np.clip(normalized, 0, 255).astype(np.uint8)
     
-    # Wash Out Light Colors ("Clean Background")
+    # 6. Wash Out Light Colors ("Clean Background")
     cleaned = adjust_levels(normalized, black_point=0, white_point=220)
     
-    # Diacritic Boost (Black-Hat Filter)
+    # 7. Diacritic Boost (Black-Hat Filter)
     kernel_small = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     blackhat = cv2.morphologyEx(cleaned, cv2.MORPH_BLACKHAT, kernel_small)
-    boosted = cv2.subtract(cleaned, blackhat)
+    boosted = cv2.subtract(cleaned, blackhat) # Darken the diacritics
     
-    # Sharpening (Unsharp Mask)
+    # 8. Sharpening (Unsharp Mask)
     gaussian = cv2.GaussianBlur(boosted, (0, 0), 2.0)
     sharpened = cv2.addWeighted(boosted, 1.5, gaussian, -0.5, 0)
     
-    output_path = os.path.join(tmp_dir, f"page_{page_num}.png")
-    cv2.imwrite(output_path, sharpened)
+    # Save the result
+    cv2.imwrite(clean_path, sharpened)
     
-    return output_path
+    # Clean up raw image
+    try:
+        os.remove(raw_path)
+    except OSError:
+        pass
+        
+    return clean_path
 
 def process_pdf(pdf_path: str, output_dir: str) -> tuple[dict, str]:
     """
