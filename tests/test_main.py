@@ -3,7 +3,7 @@ import os
 import tempfile
 import json
 from src.utils import load_categories
-from src.cli import parse_args
+from src.main import parse_args
 
 class TestUtils(unittest.TestCase):
     def setUp(self):

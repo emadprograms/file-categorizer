@@ -17,19 +17,19 @@ pip install -r requirements.txt
 2. Run the CLI tool on your PDF files:
 
 ```bash
-python src/cli.py -i input.pdf -c categories.txt
+python src/main.py -i input.pdf -c categories.txt
 ```
 
 ## Usage Examples
 
 **Process multiple PDFs and specify an output directory:**
 ```bash
-python src/cli.py --input-pdfs docs/*.pdf --categories "Invoice,Receipt,Contract" --output-dir out/
+python src/main.py --input-pdfs docs/*.pdf --categories "Invoice,Receipt,Contract" --output-dir out/
 ```
 
 **Specify a different vision model:**
 ```bash
-python src/cli.py -i invoice.pdf -c categories.txt -m gemma-4-31b-it
+python src/main.py -i invoice.pdf -c categories.txt -m gemma-4-31b-it
 ```
 
 ## Contributing

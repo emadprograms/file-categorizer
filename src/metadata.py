@@ -65,6 +65,7 @@ def inject_pdf_metadata(input_pdf_path: str, output_pdf_path: str, report_data: 
     doc = fitz.open(input_pdf_path)
     
     rules = []
+    toc = []
     for i in range(len(doc)):
         page_num_str = str(i + 1)
         page_info = report_data.get(page_num_str, {})
@@ -73,6 +74,11 @@ def inject_pdf_metadata(input_pdf_path: str, output_pdf_path: str, report_data: 
         prefix = f"{i + 1} - {category}"
         rules.append({"startpage": i, "prefix": prefix, "style": ""})
         
+        # Add to Table of Contents (Bookmarks)
+        # format: [level, title, page_number] where page_number is 1-indexed
+        toc.append([1, prefix, i + 1])
+        
     doc.set_page_labels(rules)
+    doc.set_toc(toc)
     doc.save(output_pdf_path)
     doc.close()

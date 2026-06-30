@@ -29,10 +29,10 @@ def test_full_pipeline(mock_sleep, mock_client, tmp_path):
     out_dir = tmp_path / "output"
     
     # Mock sys.argv
-    test_args = ["cli.py", "-i", str(input_pdf), "-c", str(categories_file), "-o", str(out_dir)]
+    test_args = ["main.py", "-i", str(input_pdf), "-c", str(categories_file), "-o", str(out_dir)]
     
     with patch.object(sys, 'argv', test_args):
-        from src.cli import main
+        from src.main import main
         main()
         
     # Verify outputs
