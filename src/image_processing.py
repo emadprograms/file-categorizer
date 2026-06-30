@@ -7,9 +7,44 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+def adjust_levels(image, black_point, white_point):
+    lut = np.zeros(256, dtype=np.uint8)
+    for i in range(256):
+        if i <= black_point:
+            lut[i] = 0
+        elif i >= white_point:
+            lut[i] = 255
+        else:
+            lut[i] = int(((i - black_point) / (white_point - black_point)) * 255.0)
+    return cv2.LUT(image, lut)
+
+def auto_deskew(image):
+    thresh = cv2.bitwise_not(image)
+    _, thresh = cv2.threshold(thresh, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    
+    coords = np.column_stack(np.where(thresh > 0))
+    if len(coords) == 0:
+        return image
+        
+    angle = cv2.minAreaRect(coords)[-1]
+    
+    if angle < -45:
+        angle = -(90 + angle)
+    else:
+        angle = -angle
+        
+    if abs(angle) < 0.5:
+        return image
+        
+    (h, w) = image.shape[:2]
+    center = (w // 2, h // 2)
+    M = cv2.getRotationMatrix2D(center, angle, 1.0)
+    rotated = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+    return rotated
+
 def extract_and_clean_page(pdf_document, page_num: int, tmp_dir: str) -> str:
     """
-    Extracts a single page from a PyMuPDF document, cleans it, and saves it as an image.
+    Extracts a single page from a PyMuPDF document, cleans it exactly like the reference implementation, and saves it as an image.
     """
     page = pdf_document.load_page(page_num)
     matrix = fitz.Matrix(300/72, 300/72)
@@ -27,28 +62,37 @@ def extract_and_clean_page(pdf_document, page_num: int, tmp_dir: str) -> str:
         img_np = cv2.cvtColor(img_np, cv2.COLOR_CMYK2RGB)
         
     # Green channel extraction
-    img_gray = img_np[:, :, 1]
+    gray = img_np[:, :, 1]
     
-    # Division normalization (background removal)
-    # Estimate background
-    bg = cv2.medianBlur(img_gray, 21)
-    # Add a small epsilon to avoid division by zero
-    diff = 255 - cv2.absdiff(img_gray, bg)
-    norm = cv2.normalize(diff, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
+    # Auto-Deskew
+    gray = auto_deskew(gray)
     
-    # White point washout (White Point 200-220)
-    # Map 200 to 255
-    washout = np.clip(norm.astype(np.float32) * (255.0 / 200.0), 0, 255).astype(np.uint8)
+    # Estimate Background (Illumination Map)
+    kernel_large = np.ones((15, 15), np.uint8)
+    bg = cv2.dilate(gray, kernel_large, iterations=1)
+    bg = cv2.GaussianBlur(bg, (21, 21), 0)
     
-    # Black-hat filter (to boost fine details/diacritics)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))
-    blackhat = cv2.morphologyEx(washout, cv2.MORPH_BLACKHAT, kernel)
+    # Illumination Normalization (Division)
+    # Add small epsilon to prevent division by zero, though cv2/numpy handle it mostly
+    bg_float = bg.astype(np.float32)
+    bg_float[bg_float == 0] = 1.0
+    normalized = 255 * (gray.astype(np.float32) / bg_float)
+    normalized = np.clip(normalized, 0, 255).astype(np.uint8)
     
-    # Subtract blackhat from washout (makes dark parts darker)
-    cleaned = cv2.subtract(washout, blackhat)
+    # Wash Out Light Colors ("Clean Background")
+    cleaned = adjust_levels(normalized, black_point=0, white_point=220)
+    
+    # Diacritic Boost (Black-Hat Filter)
+    kernel_small = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    blackhat = cv2.morphologyEx(cleaned, cv2.MORPH_BLACKHAT, kernel_small)
+    boosted = cv2.subtract(cleaned, blackhat)
+    
+    # Sharpening (Unsharp Mask)
+    gaussian = cv2.GaussianBlur(boosted, (0, 0), 2.0)
+    sharpened = cv2.addWeighted(boosted, 1.5, gaussian, -0.5, 0)
     
     output_path = os.path.join(tmp_dir, f"page_{page_num}.png")
-    cv2.imwrite(output_path, cleaned)
+    cv2.imwrite(output_path, sharpened)
     
     return output_path
 
