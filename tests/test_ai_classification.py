@@ -37,8 +37,8 @@ def test_classify_pages_success(mock_sleep, mock_client, temp_dir):
     with open(os.path.join(temp_dir, "progress.json"), "r") as f:
         status = json.load(f)
         
-    assert status["page_0"] == "invoice"
-    assert status["page_1"] == "invoice"
+    assert status["page_0"]["category"] == "invoice"
+    assert status["page_1"]["category"] == "invoice"
     assert status["page_2"] == "error"  # Was skipped
     
     # 7 second limit enforced?
@@ -59,8 +59,8 @@ def test_classify_pages_invalid_category(mock_sleep, mock_client, temp_dir):
     with open(os.path.join(temp_dir, "progress.json"), "r") as f:
         status = json.load(f)
         
-    assert status["page_0"] == "error"
-    assert status["page_1"] == "error"
+    assert status["page_0"]["status"] == "error"
+    assert status["page_1"]["status"] == "error"
     assert mock_instance.models.generate_content.call_count == 6  # 3 retries for 2 pages
 
 @patch("src.ai_classification.genai.Client")
@@ -89,4 +89,4 @@ def test_classify_pages_rate_limit(mock_sleep, mock_client, temp_dir):
     with open(os.path.join(temp_dir, "progress.json"), "r") as f:
         status = json.load(f)
         
-    assert status["page_0"] == "invoice"
+    assert status["page_0"]["category"] == "invoice"
