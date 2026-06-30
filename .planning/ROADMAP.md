@@ -6,7 +6,7 @@
 
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|------------------|
-| 1 | CLI Scaffolding | 1/1 | Complete   | 2026-06-30 |
+| 1 | CLI Scaffolding | 1/1 | Complete    | 2026-06-30 |
 | 2 | Image Processing | Extract pages from PDF and apply cleaning logic | IMG-01 | 2 |
 | 3 | AI Classification | Integrate Gemma Vision to categorize cleaned images | AI-01, AI-02 | 3 |
 | 4 | Reporting & Metadata | Save categories to PDF metadata and generate report | OUT-01, OUT-02 | 2 |
