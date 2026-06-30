@@ -16,6 +16,7 @@ pip install -r requirements.txt
 1. Create a `categories.txt` file or use a comma-separated list of categories.
 2. Run the CLI tool on your PDF files:
 
+```bash
 python src/main.py -i input.pdf -c categories.txt --instructions instructions.txt
 ```
 

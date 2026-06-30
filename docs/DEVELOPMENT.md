@@ -13,7 +13,7 @@ To set up the project for development:
 
 | Command | Description |
 |---------|-------------|
-| `python src/cli.py` | Runs the main CLI script directly (no build step needed). |
+| `python src/main.py` | Runs the main CLI script directly (no build step needed). |
 
 ## Code Style
 

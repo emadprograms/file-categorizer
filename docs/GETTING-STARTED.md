@@ -31,7 +31,7 @@
 Run the CLI tool with a sample PDF and a categories file:
 
 ```bash
-python src/cli.py -i sample.pdf -c categories.txt
+python src/main.py -i sample.pdf -c categories.txt --instructions instructions.txt
 ```
 
 ## Common Setup Issues
