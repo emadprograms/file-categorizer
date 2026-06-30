@@ -7,6 +7,8 @@ import shutil
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.utils import load_categories
 from src.image_processing import process_pdf
+from src.ai_classification import classify_pages
+import json
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser(description="Arabic PDF OCR & Categorization CLI")
@@ -46,6 +48,15 @@ def main():
         try:
             status, tmp_dir = process_pdf(pdf_path, args.output_dir)
             
+            print(f"Classifying pages for {pdf_path}...")
+            classify_pages(tmp_dir, categories)
+            
+            # Reload status from progress.json to get classification results
+            progress_file = os.path.join(tmp_dir, "progress.json")
+            if os.path.exists(progress_file):
+                with open(progress_file, "r", encoding="utf-8") as f:
+                    status = json.load(f)
+            
             failed_pages = [
                 page_key.replace("page_", "") 
                 for page_key, page_status in status.items() 
@@ -62,7 +73,7 @@ def main():
             
             # Temporary: delete tmp_dir as instructed. 
             # In Phase 3, this will happen AFTER LLM classification and PDF generation.
-            shutil.rmtree(tmp_dir, ignore_errors=True)
+            # shutil.rmtree(tmp_dir, ignore_errors=True)
             
         except Exception as e:
             print(f"Error processing {pdf_path}: {e}", file=sys.stderr)
