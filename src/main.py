@@ -38,6 +38,7 @@ def parse_args(args=None) -> argparse.Namespace:
     parser.add_argument("-c", "--categories", required=True, dest="categories_file", help="Path to categories file, or a comma-separated list of categories")
     parser.add_argument("-o", "--output-dir", help="Output directory (defaults to the input file's directory)")
     parser.add_argument("-m", "--model", choices=["gemma-4-26b", "gemma-4-31b-it"], default="gemma-4-26b", help="Vision model to use")
+    parser.add_argument("--instructions", help="Path to a text file containing custom instructions for the AI")
     return parser.parse_args(args)
 
 def main() -> None:
@@ -56,6 +57,16 @@ def main() -> None:
     except Exception as e:
         print(f"Error loading categories: {e}", file=sys.stderr)
         sys.exit(1)
+        
+    # Load custom instructions if provided
+    custom_instructions = ""
+    if args.instructions:
+        if os.path.isfile(args.instructions):
+            with open(args.instructions, "r", encoding="utf-8") as f:
+                custom_instructions = f.read().strip()
+        else:
+            print(f"Error: Instructions file not found: {args.instructions}", file=sys.stderr)
+            sys.exit(1)
         
     # Validate and expand input PDFs (handles Windows wildcard passing)
     import glob
@@ -97,7 +108,7 @@ def main() -> None:
             
             try:
                 print(f"Classifying pages for {pdf_path}...")
-                classify_pages(tmp_dir, categories, model=args.model)
+                classify_pages(tmp_dir, categories, model=args.model, custom_instructions=custom_instructions)
                 
                 # Reload status from progress.json to get classification results
                 progress_file = os.path.join(tmp_dir, "progress.json")

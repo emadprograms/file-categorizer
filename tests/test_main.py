@@ -34,10 +34,11 @@ class TestUtils(unittest.TestCase):
 
 class TestCLI(unittest.TestCase):
     def test_parse_args(self):
-        args = parse_args(["-i", "file1.pdf", "file2.pdf", "-c", "cats.txt", "-o", "out_dir"])
+        args = parse_args(["-i", "file1.pdf", "file2.pdf", "-c", "cats.txt", "-o", "out_dir", "--instructions", "inst.txt"])
         self.assertEqual(args.input_pdfs, ["file1.pdf", "file2.pdf"])
         self.assertEqual(args.categories_file, "cats.txt")
         self.assertEqual(args.output_dir, "out_dir")
+        self.assertEqual(args.instructions, "inst.txt")
 
 if __name__ == "__main__":
     unittest.main()

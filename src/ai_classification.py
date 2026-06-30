@@ -15,7 +15,7 @@ from google.genai.errors import APIError
 
 logger = logging.getLogger(__name__)
 
-def classify_pages(tmp_dir: str, categories: list, model: str = 'gemma-4-26b') -> None:
+def classify_pages(tmp_dir: str, categories: list, model: str = 'gemma-4-26b', custom_instructions: str = "") -> None:
     """
     Classifies processed PDF pages using a vision model.
     
@@ -28,6 +28,7 @@ def classify_pages(tmp_dir: str, categories: list, model: str = 'gemma-4-26b') -
         tmp_dir: The temporary directory containing the extracted images and `progress.json`.
         categories: A list of valid category strings.
         model: The name of the Google GenAI vision model to use (default: 'gemma-4-26b').
+        custom_instructions: Optional string containing specific rules for the AI.
     """
     progress_file = os.path.join(tmp_dir, "progress.json")
     
@@ -74,6 +75,12 @@ def classify_pages(tmp_dir: str, categories: list, model: str = 'gemma-4-26b') -
                         "Categorize this Arabic PDF page. "
                         "You must select EXACTLY ONE category from the following list: "
                         f"{categories}. "
+                    )
+                    
+                    if custom_instructions:
+                        prompt += f"CRITICAL INSTRUCTIONS:\n{custom_instructions}\n"
+                        
+                    prompt += (
                         "Respond with a JSON object containing 'category' (the chosen category) "
                         "and 'reason' (the thinking or evidence from the page justifying this choice)."
                     )

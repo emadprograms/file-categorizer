@@ -9,4 +9,5 @@ pdfs_output/
 scratch/
 out/
 .planning/tmp/
-
+categories.txt
+instructions.txt
