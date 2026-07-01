@@ -39,7 +39,7 @@ def classify_pages(tmp_dir: str, categories: list, model: str = 'gemma-4-26b', c
     with open(progress_file, "r", encoding="utf-8") as f:
         status = json.load(f)
         
-    client = genai.Client()
+    client = genai.Client(http_options={'timeout': 60000.0})
     
     last_call_time = 0
     
@@ -129,6 +129,9 @@ def classify_pages(tmp_dir: str, categories: list, model: str = 'gemma-4-26b', c
                     time.sleep(15)
                 elif e.code == 401:
                     logger.error("Authentication failed (401). Please check your API key.")
+                    sys.exit(1)
+                elif e.code == 404:
+                    logger.error(f"Model not found or endpoint not supported (404): {e}")
                     sys.exit(1)
                 else:
                     logger.error(f"API Error: {e}")

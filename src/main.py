@@ -59,7 +59,7 @@ def parse_args(args=None) -> argparse.Namespace:
     parser.add_argument("-i", "--input-pdfs", nargs="+", required=True, help="Input PDF files")
     parser.add_argument("-c", "--categories", required=True, dest="categories_file", help="Path to categories file, or a comma-separated list of categories")
     parser.add_argument("-o", "--output-dir", help="Output directory (defaults to the input file's directory)")
-    parser.add_argument("-m", "--model", choices=["gemma-4-26b", "gemma-4-31b-it"], default="gemma-4-26b", help="Vision model to use")
+    parser.add_argument("-m", "--model", choices=["gemma-4-26b", "gemma-4-31b-it", "gemma-4-26b-a4b-it"], default="gemma-4-26b-a4b-it", help="Vision model to use")
     parser.add_argument("--instructions", help="Path to a text file containing custom instructions for the AI")
     return parser.parse_args(args)
 
@@ -104,7 +104,13 @@ def main() -> None:
         if not matches:
             logger.error(f"Error: No files matching: {pattern}")
             sys.exit(1)
-        expanded_pdfs.extend(matches)
+        for m in matches:
+            if "categorized_pdfs" not in m and "_categorized" not in os.path.basename(m):
+                expanded_pdfs.append(m)
+                
+    if not expanded_pdfs:
+        logger.error("Error: No valid input PDFs found (all matching files were output PDFs).")
+        sys.exit(1)
         
     for pdf_path in expanded_pdfs:
         if not os.path.isfile(pdf_path):
@@ -122,11 +128,19 @@ def main() -> None:
         basename = os.path.basename(pdf_path)
         base_name_without_ext, _ = os.path.splitext(basename)
         
-        current_output_dir = args.output_dir if args.output_dir else os.path.dirname(os.path.abspath(pdf_path))
-        if not args.output_dir:
-            os.makedirs(current_output_dir, exist_ok=True)
+        input_dir = os.path.dirname(os.path.abspath(pdf_path))
+        report_path = os.path.join(input_dir, f"{base_name_without_ext}_report.json")
+        
+        if args.output_dir:
+            final_output_dir = args.output_dir
+            tmp_base_dir = args.output_dir
+        else:
+            final_output_dir = os.path.join(input_dir, "categorized_pdfs")
+            tmp_base_dir = input_dir
             
-        report_path = os.path.join(current_output_dir, f"{base_name_without_ext}_report.json")
+        os.makedirs(final_output_dir, exist_ok=True)
+        if tmp_base_dir != final_output_dir:
+            os.makedirs(tmp_base_dir, exist_ok=True)
         
         resume_status = {}
         if os.path.exists(report_path):
@@ -155,7 +169,7 @@ def main() -> None:
                     continue
                 else:
                     logger.info(f"Resuming {pdf_path} to retry failed pages.")
-                    tmp_dir = os.path.join(current_output_dir, f".tmp_{basename}")
+                    tmp_dir = os.path.join(tmp_base_dir, f".tmp_{basename}")
                     os.makedirs(tmp_dir, exist_ok=True)
                     progress_file_path = os.path.join(tmp_dir, "progress.json")
                     if not os.path.exists(progress_file_path):
@@ -165,7 +179,7 @@ def main() -> None:
                 logger.warning(f"Could not read existing report {report_path}: {e}")
             
         try:
-            status, tmp_dir = process_pdf(pdf_path, current_output_dir)
+            status, tmp_dir = process_pdf(pdf_path, tmp_base_dir)
             
             if status is None:
                 logger.error(f"Skipping {pdf_path} due to an error opening the file.")
@@ -198,7 +212,8 @@ def main() -> None:
                 final_pdf_name += f"_failed_pages_{'_'.join(failed_pages)}"
             final_pdf_name += ".pdf"
             
-            final_pdf_path = os.path.join(current_output_dir, final_pdf_name)
+            final_pdf_path = os.path.join(final_output_dir, final_pdf_name)
+            
             inject_pdf_metadata(pdf_path, final_pdf_path, report_data)
             
             logger.info(f"Processed {pdf_path}. Target PDF output: {final_pdf_name}")
